@@ -26,8 +26,10 @@ impl RecipeParser for Parser {
         let monitoring = if adjacent_monitor.exists() {
             let s = std::fs::read_to_string(&adjacent_monitor)
                 .map_err(|_| super::RecipeError::InvalidRecipe)?;
-            let m = Monitoring::from_str(&s)?;
-            Some(m)
+            match Monitoring::from_str(&s) {
+                Ok(m) => Some(m),
+                Err(_) => None,
+            }
         } else {
             None
         };
