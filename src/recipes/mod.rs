@@ -11,6 +11,7 @@ use monitoring::Monitoring;
 pub use parser::*;
 
 mod stone;
+mod ypkg;
 
 // Source recipe details
 #[derive(Debug)]
