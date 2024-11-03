@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-use super::{ParserRegistration, Recipe, RecipeParser};
+use super::{monitoring::Monitoring, ParserRegistration, Recipe, RecipeParser};
 
 struct Parser {}
 
@@ -11,9 +11,20 @@ impl RecipeParser for Parser {
         let s = std::fs::read_to_string(recipe).map_err(|_| super::RecipeError::InvalidRecipe)?;
         let p = stone_recipe::from_str(&s).map_err(|_| super::RecipeError::InvalidRecipe)?;
 
+        let adjacent_monitor = recipe.with_file_name("monitoring.yaml");
+        let monitoring = if adjacent_monitor.exists() {
+            let s = std::fs::read_to_string(&adjacent_monitor)
+                .map_err(|_| super::RecipeError::InvalidRecipe)?;
+            let m = Monitoring::from_str(&s)?;
+            Some(m)
+        } else {
+            None
+        };
+
         let r = Recipe {
             name: p.source.name,
             version: p.source.version,
+            monitoring,
         };
         Ok(r)
     }

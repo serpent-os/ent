@@ -8,13 +8,16 @@ use std::path::Path;
 
 use thiserror::Error;
 
-use super::Recipe;
+use super::{monitoring, Recipe};
 
 // This is the error type that all parsers must return
 #[derive(Debug, Error)]
 pub enum RecipeError {
     #[error("Recipe is invalid")]
     InvalidRecipe,
+
+    #[error("Monitoring data is invalid")]
+    InvalidMonitoring(#[from] monitoring::Error),
 
     #[error("Recipe is unsupported")]
     UnsupportedRecipe,

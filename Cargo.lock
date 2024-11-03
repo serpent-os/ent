@@ -104,6 +104,8 @@ dependencies = [
  "clap",
  "glob",
  "inventory",
+ "serde",
+ "serde_yaml",
  "stone_recipe",
  "thiserror",
 ]

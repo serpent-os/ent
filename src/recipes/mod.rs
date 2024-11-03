@@ -4,8 +4,10 @@
 
 //! Recipe parsing and handling library
 
+mod monitoring;
 mod parser;
 
+use monitoring::Monitoring;
 pub use parser::*;
 
 mod stone;
@@ -13,6 +15,12 @@ mod stone;
 // Source recipe details
 #[derive(Debug)]
 pub struct Recipe {
+    // Name of the recipe source
     pub name: String,
+
+    // Version of the recipe
     pub version: String,
+
+    // Monitoring data
+    pub monitoring: Option<Monitoring>,
 }
