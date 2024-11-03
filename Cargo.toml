@@ -10,7 +10,6 @@ futures = "0.3.31"
 glob = "0.3.1"
 indicatif = "0.17.8"
 inventory = "0.3.15"
-rayon = "1.10.0"
 reqwest = { version = "0.12.9", features = ["json"] }
 serde = { version = "1.0.214", features = ["derive"] }
 serde_json = "1.0.132"
