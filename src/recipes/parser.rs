@@ -16,6 +16,9 @@ pub enum RecipeError {
     #[error("Recipe is invalid")]
     InvalidRecipe,
 
+    #[error("IO error: {0}")]
+    IO(#[from] std::io::Error),
+
     #[error("Monitoring data is invalid")]
     InvalidMonitoring(#[from] monitoring::Error),
 

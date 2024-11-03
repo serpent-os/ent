@@ -48,8 +48,7 @@ fn scan_dir(
     let root = root.as_ref();
     let mut ret = vec![];
 
-    for entry in root.read_dir().unwrap() {
-        let entry = entry.unwrap();
+    for entry in root.read_dir()?.flatten() {
         let path = entry.path();
         if path.is_dir() {
             ret.extend(scan_dir(&path, globs)?);
