@@ -2,5 +2,4 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-pub mod data;
-pub mod recipes;
+pub mod updates;

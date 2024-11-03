@@ -5,8 +5,13 @@
 use std::{collections::HashMap, path::Path};
 
 use clap::{Parser, Subcommand};
-use ent::recipes::{self, ParserRegistration, Recipe, RecipeError};
+use colored::Colorize;
+use ent::{
+    data,
+    recipes::{self, ParserRegistration, Recipe, RecipeError},
+};
 use glob::Pattern;
+use indicatif::ProgressBar;
 
 /// A simple CLI tool to check for working with recipe trees
 #[derive(Parser)]
@@ -82,7 +87,100 @@ fn scan_recipes(root: impl AsRef<Path>) -> Result<Vec<Recipe>, RecipeError> {
     Ok(scanned)
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// A required update for CLI rendering
+#[derive(Debug)]
+pub struct RequiredUpdate {
+    pub source: String,
+    pub current_version: String,
+    pub latest_version: String,
+}
+
+async fn check_updates(root: impl AsRef<Path>) -> Result<(), Box<dyn std::error::Error>> {
+    let recipes = scan_recipes(root)?;
+
+    let pb = ProgressBar::new(recipes.len() as u64);
+    let futures: Vec<_> = recipes
+        .into_iter()
+        .map(|recipe| {
+            let pb = pb.clone();
+            async move {
+                let latest_version = if let Some(m) = &recipe.monitoring {
+                    if m.project_id != 0 {
+                        let lv = data::updates::get_latest_version(m.project_id).await?;
+                        let next_version = if let Some(stable) = lv.stable_versions.first().cloned()
+                        {
+                            Some(stable)
+                        } else if let Some(latest) = lv.latest_version {
+                            Some(latest.clone())
+                        } else {
+                            lv.versions.first().cloned()
+                        };
+
+                        if let Some(nv) = next_version {
+                            if nv != recipe.version {
+                                Some(RequiredUpdate {
+                                    source: recipe.name.clone(),
+                                    current_version: recipe.version.clone(),
+                                    latest_version: nv,
+                                })
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                pb.inc(1);
+                Ok(latest_version) as Result<Option<RequiredUpdate>, Box<dyn std::error::Error>>
+            }
+        })
+        .collect();
+
+    let latest_recipes: Vec<_> = futures::future::join_all(futures).await;
+    pb.finish_and_clear();
+
+    let mut updates: Vec<_> = latest_recipes.into_iter().flatten().flatten().collect();
+    updates.sort_by(|a, b| a.source.cmp(&b.source));
+
+    let max_source_len = updates.iter().map(|u| u.source.len()).max().unwrap_or(0);
+    let max_current_version_len = updates
+        .iter()
+        .map(|u| u.current_version.len())
+        .max()
+        .unwrap_or(0);
+    let max_latest_version_len = updates
+        .iter()
+        .map(|u| u.latest_version.len())
+        .max()
+        .unwrap_or(0);
+
+    println!(
+        "\nTotal packages to update: {}\n",
+        updates.len().to_string().yellow()
+    );
+    for update in updates {
+        println!(
+            "{:<width_source$} {:<width_current$} -> {:<width_latest$}",
+            update.source.cyan(),
+            update.current_version.red(),
+            update.latest_version.green(),
+            width_source = max_source_len,
+            width_current = max_current_version_len,
+            width_latest = max_latest_version_len
+        );
+    }
+
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match &cli.command {
@@ -92,8 +190,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Check { check_command } => match check_command {
             CheckCommands::Updates => {
                 println!("Checking for updates...");
-                let recipes = scan_recipes(".")?;
-                eprintln!("{:?}", recipes);
+                check_updates(".").await?;
             }
             CheckCommands::Security => {
                 todo!("Implement security check");
