@@ -10,6 +10,7 @@ use ent::{
     data,
     recipes::{self, ParserRegistration, Recipe, RecipeError},
 };
+use futures::StreamExt;
 use glob::Pattern;
 use indicatif::ProgressBar;
 
@@ -98,8 +99,8 @@ async fn check_updates(root: impl AsRef<Path>) -> Result<(), Box<dyn std::error:
     let recipes = scan_recipes(root)?;
 
     let pb = ProgressBar::new(recipes.len() as u64);
-    let futures: Vec<_> = recipes
-        .into_iter()
+
+    let futures = futures::stream::iter(recipes)
         .map(|recipe| {
             let pb = pb.clone();
             async move {
@@ -139,9 +140,9 @@ async fn check_updates(root: impl AsRef<Path>) -> Result<(), Box<dyn std::error:
                 Ok(latest_version) as Result<Option<RequiredUpdate>, Box<dyn std::error::Error>>
             }
         })
-        .collect();
+        .buffer_unordered(32); // Process up to 32 concurrent requests
 
-    let latest_recipes: Vec<_> = futures::future::join_all(futures).await;
+    let latest_recipes: Vec<_> = futures.collect().await;
     pb.finish_and_clear();
 
     let mut updates: Vec<_> = latest_recipes.into_iter().flatten().flatten().collect();
