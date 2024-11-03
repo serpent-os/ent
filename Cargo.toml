@@ -7,6 +7,7 @@ edition = "2021"
 clap = { version = "4.5.20", features = ["derive"] }
 glob = "0.3.1"
 inventory = "0.3.15"
+rayon = "1.10.0"
 serde = { version = "1.0.214", features = ["derive"] }
 serde_yaml = "0.9.34"
 stone_recipe = { git = "https://github.com/serpent-os/tools.git", version = "0.24.2" }

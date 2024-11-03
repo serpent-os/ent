@@ -5,7 +5,7 @@
 use std::{collections::HashMap, path::Path};
 
 use clap::{Parser, Subcommand};
-use ent::recipes::{self, ParserRegistration};
+use ent::recipes::{self, ParserRegistration, Recipe, RecipeError};
 use glob::Pattern;
 
 /// A simple CLI tool to check for working with recipe trees
@@ -63,7 +63,7 @@ fn scan_dir(
 }
 
 // This function scans the recipes in the current directory
-fn scan_recipes(root: impl AsRef<Path>) {
+fn scan_recipes(root: impl AsRef<Path>) -> Result<Vec<Recipe>, RecipeError> {
     let registry = inventory::iter::<ParserRegistration>
         .into_iter()
         .map(|p| (p.name, p))
@@ -78,33 +78,28 @@ fn scan_recipes(root: impl AsRef<Path>) {
         })
         .collect::<HashMap<_, _>>();
 
-    let scanned = scan_dir(root, &glob_patterns).unwrap();
-    for recipe in scanned {
-        println!("recipe: {:?}", recipe);
-    }
+    let scanned = scan_dir(root, &glob_patterns)?;
+    Ok(scanned)
 }
 
-fn main() {
-    scan_recipes(".");
-
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match &cli.command {
         Commands::Refresh => {
-            println!("Refreshing...");
-            // Add the refresh logic here
+            todo!("Implement refresh");
         }
-        Commands::Check { check_command } => {
-            match check_command {
-                CheckCommands::Updates => {
-                    println!("Checking for updates...");
-                    // Add the updates check logic here
-                }
-                CheckCommands::Security => {
-                    println!("Checking security...");
-                    // Add the security check logic here
-                }
+        Commands::Check { check_command } => match check_command {
+            CheckCommands::Updates => {
+                println!("Checking for updates...");
+                let recipes = scan_recipes(".")?;
+                eprintln!("{:?}", recipes);
             }
-        }
+            CheckCommands::Security => {
+                todo!("Implement security check");
+            }
+        },
     }
+
+    Ok(())
 }
