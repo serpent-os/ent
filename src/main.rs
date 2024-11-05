@@ -57,7 +57,7 @@ fn scan_dir(
             for (pattern, parser) in globs {
                 if pattern.matches_path(&path) {
                     let parser = (parser.parser)();
-                    let r = parser.parse(&path).unwrap();
+                    let r = parser.parse(&path)?;
                     ret.push(r);
                 }
             }
