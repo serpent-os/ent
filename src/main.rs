@@ -105,9 +105,7 @@ async fn check_updates(root: impl AsRef<Path>) -> Result<(), Box<dyn std::error:
     let pb = ProgressBar::new(recipes.len() as u64);
     pb.set_style(
         indicatif::ProgressStyle::default_bar()
-            .template(
-                "{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} ({eta}) : {msg:.white.bold}",
-            )
+            .template("{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} ({eta}) : {msg:.bold}")
             .unwrap()
             .progress_chars("#>-"),
     );
@@ -186,9 +184,32 @@ async fn check_updates(root: impl AsRef<Path>) -> Result<(), Box<dyn std::error:
         "\nTotal packages to update: {}\n",
         updates.len().to_string().yellow()
     );
+    // Print header
+    println!(
+        "{:width_source$} {:width_current$} {:width_latest$}",
+        "Package".bold(),
+        "Current".bold(),
+        "Latest".bold(),
+        width_source = max_source_len,
+        width_current = max_current_version_len,
+        width_latest = max_latest_version_len
+    );
+
+    // Print separator line
+    println!(
+        "{:-<width_source$} {:-<width_current$} {:-<width_latest$}",
+        "",
+        "",
+        "",
+        width_source = max_source_len,
+        width_current = max_current_version_len,
+        width_latest = max_latest_version_len
+    );
+
+    // Print updates
     for update in updates {
         println!(
-            "{:<width_source$} {:<width_current$} -> {:<width_latest$}",
+            "{:<width_source$} {:<width_current$} {:<width_latest$}",
             update.source.cyan(),
             update.current_version.red(),
             update.latest_version.green(),
