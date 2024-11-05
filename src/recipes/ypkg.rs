@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-use super::{monitoring::Monitoring, ParserRegistration, Recipe, RecipeParser};
+use std::{fs, path::Path};
+
+use super::{monitoring::Monitoring, ParserRegistration, Recipe, RecipeError, RecipeParser};
 
 struct Parser {}
 
@@ -13,41 +15,32 @@ struct YpkgRecipe {
 }
 
 impl RecipeParser for Parser {
-    fn parse(&self, recipe: &std::path::Path) -> Result<Recipe, super::RecipeError> {
-        let s = std::fs::read_to_string(recipe)
-            .map_err(|_| {
-                super::RecipeError::InvalidRecipe(recipe.to_str().unwrap_or_default().to_string())
-            })
-            .unwrap_or_default();
-        let p: YpkgRecipe = serde_yaml::from_str(&s).map_err(|_| {
-            super::RecipeError::InvalidRecipe(recipe.to_str().unwrap_or_default().to_string())
-        })?;
+    fn parse(&self, recipe: &Path) -> Result<Recipe, RecipeError> {
+        let s = fs::read_to_string(recipe)
+            .map_err(|_| RecipeError::InvalidRecipe(recipe.display().to_string()))?;
 
-        let mut adjacent_monitor = recipe.with_file_name("monitoring.yaml");
-        if !adjacent_monitor.exists() {
-            adjacent_monitor = recipe.with_file_name("monitoring.yml");
-        }
+        let p: YpkgRecipe = serde_yaml::from_str(&s)
+            .map_err(|_| RecipeError::InvalidRecipe(recipe.display().to_string()))?;
 
-        let monitoring = if adjacent_monitor.exists() {
-            let s = std::fs::read_to_string(&adjacent_monitor)
-                .map_err(|_| {
-                    super::RecipeError::InvalidRecipe(adjacent_monitor.display().to_string())
-                })
-                .unwrap_or_default();
-            match Monitoring::from_str(&s) {
-                Ok(m) => Some(m),
-                Err(_) => None,
+        let adjacent_monitor = ["monitoring.yaml", "monitoring.yml"]
+            .iter()
+            .map(|name| recipe.with_file_name(name))
+            .find(|path| path.exists());
+
+        let monitoring = match adjacent_monitor {
+            Some(path) => {
+                let s = fs::read_to_string(&path)
+                    .map_err(|_| RecipeError::InvalidRecipe(path.display().to_string()))?;
+                Monitoring::from_str(&s).ok()
             }
-        } else {
-            None
+            None => None,
         };
 
-        let r = Recipe {
+        Ok(Recipe {
             name: p.name,
             version: p.version,
             monitoring,
-        };
-        Ok(r)
+        })
     }
 }
 
