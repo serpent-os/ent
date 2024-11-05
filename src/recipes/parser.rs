@@ -13,8 +13,8 @@ use super::{monitoring, Recipe};
 // This is the error type that all parsers must return
 #[derive(Debug, Error)]
 pub enum RecipeError {
-    #[error("Recipe is invalid")]
-    InvalidRecipe,
+    #[error("Recipe is invalid {0}")]
+    InvalidRecipe(String),
 
     #[error("IO error: {0}")]
     IO(#[from] std::io::Error),

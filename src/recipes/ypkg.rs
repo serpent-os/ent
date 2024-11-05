@@ -14,9 +14,14 @@ struct YpkgRecipe {
 
 impl RecipeParser for Parser {
     fn parse(&self, recipe: &std::path::Path) -> Result<Recipe, super::RecipeError> {
-        let s = std::fs::read_to_string(recipe).map_err(|_| super::RecipeError::InvalidRecipe)?;
-        let p: YpkgRecipe =
-            serde_yaml::from_str(&s).map_err(|_| super::RecipeError::InvalidRecipe)?;
+        let s = std::fs::read_to_string(recipe)
+            .map_err(|_| {
+                super::RecipeError::InvalidRecipe(recipe.to_str().unwrap_or_default().to_string())
+            })
+            .unwrap_or_default();
+        let p: YpkgRecipe = serde_yaml::from_str(&s).map_err(|_| {
+            super::RecipeError::InvalidRecipe(recipe.to_str().unwrap_or_default().to_string())
+        })?;
 
         let mut adjacent_monitor = recipe.with_file_name("monitoring.yaml");
         if !adjacent_monitor.exists() {
@@ -25,7 +30,10 @@ impl RecipeParser for Parser {
 
         let monitoring = if adjacent_monitor.exists() {
             let s = std::fs::read_to_string(&adjacent_monitor)
-                .map_err(|_| super::RecipeError::InvalidRecipe)?;
+                .map_err(|_| {
+                    super::RecipeError::InvalidRecipe(adjacent_monitor.display().to_string())
+                })
+                .unwrap_or_default();
             match Monitoring::from_str(&s) {
                 Ok(m) => Some(m),
                 Err(_) => None,
