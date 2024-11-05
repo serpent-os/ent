@@ -95,18 +95,35 @@ pub struct RequiredUpdate {
     pub latest_version: String,
 }
 
+/// Checks for available updates by comparing local recipe versions with upstream versions
+/// Returns a formatted display of packages that need updating
 async fn check_updates(root: impl AsRef<Path>) -> Result<(), Box<dyn std::error::Error>> {
+    // Scan local recipes
     let recipes = scan_recipes(root)?;
 
+    // Setup progress bar for async operations
     let pb = ProgressBar::new(recipes.len() as u64);
+    pb.set_style(
+        indicatif::ProgressStyle::default_bar()
+            .template(
+                "{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} ({eta}) : {msg:.white.bold}",
+            )
+            .unwrap()
+            .progress_chars("#>-"),
+    );
 
+    // Process recipes concurrently to check for updates
     let futures = futures::stream::iter(recipes)
         .map(|recipe| {
             let pb = pb.clone();
             async move {
+                pb.set_message(recipe.name.to_string());
+
+                // Check if recipe has monitoring info and get latest version
                 let latest_version = if let Some(m) = &recipe.monitoring {
                     if m.project_id != 0 {
                         let lv = data::updates::get_latest_version(m.project_id).await?;
+                        // Determine next version - prefer stable > latest > first available
                         let next_version = if let Some(stable) = lv.stable_versions.first().cloned()
                         {
                             Some(stable)
@@ -116,6 +133,7 @@ async fn check_updates(root: impl AsRef<Path>) -> Result<(), Box<dyn std::error:
                             lv.versions.first().cloned()
                         };
 
+                        // Create update info if versions differ
                         if let Some(nv) = next_version {
                             if nv != recipe.version {
                                 Some(RequiredUpdate {
@@ -142,12 +160,15 @@ async fn check_updates(root: impl AsRef<Path>) -> Result<(), Box<dyn std::error:
         })
         .buffer_unordered(32); // Process up to 32 concurrent requests
 
+    // Collect results
     let latest_recipes: Vec<_> = futures.collect().await;
     pb.finish_and_clear();
 
+    // Filter and sort updates
     let mut updates: Vec<_> = latest_recipes.into_iter().flatten().flatten().collect();
     updates.sort_by(|a, b| a.source.cmp(&b.source));
 
+    // Calculate column widths for pretty printing
     let max_source_len = updates.iter().map(|u| u.source.len()).max().unwrap_or(0);
     let max_current_version_len = updates
         .iter()
@@ -160,6 +181,7 @@ async fn check_updates(root: impl AsRef<Path>) -> Result<(), Box<dyn std::error:
         .max()
         .unwrap_or(0);
 
+    // Print results
     println!(
         "\nTotal packages to update: {}\n",
         updates.len().to_string().yellow()
