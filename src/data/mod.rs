@@ -3,4 +3,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
 pub mod nvd;
+pub mod summit;
 pub mod updates;
