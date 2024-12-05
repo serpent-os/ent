@@ -279,39 +279,69 @@ async fn list_builds() -> Result<(), Box<dyn std::error::Error>> {
         status_width = max_status_len
     );
 
-    // Print each build task
-    for task in all_items {
-        let status_color = match task.status {
-            data::summit::BuildStatus::New => "cyan",
-            data::summit::BuildStatus::Failed => "red",
-            data::summit::BuildStatus::Building => "yellow",
-            data::summit::BuildStatus::Publishing => "blue",
-            data::summit::BuildStatus::Completed => "green",
-            data::summit::BuildStatus::Blocked => "red",
-        };
-        // Get the last part after split on '/' and limit to 50 chars with ellipsis
-        let truncated_build_id = {
-            let id = task.build_id.split('/').last().unwrap_or(&task.build_id);
-            if id.len() > 50 {
-                format!("{}...", &id[..47])
-            } else {
-                id.to_string()
-            }
-        };
+    // First print building items
+    for task in all_items
+        .iter()
+        .filter(|t| matches!(t.status, data::summit::BuildStatus::Building))
+    {
+        print_task(task, max_id_len, max_pkg_len, max_arch_len);
+    }
 
-        println!(
-            "{:>id_width$} {:<pkg_width$} {:<arch_width$} {}",
-            task.id.to_string().bold(),
-            truncated_build_id.cyan(),
-            task.architecture,
-            format!("{:?}", task.status).color(status_color),
-            id_width = max_id_len,
-            pkg_width = max_pkg_len,
-            arch_width = max_arch_len,
-        );
+    // Then print new items
+    for task in all_items
+        .iter()
+        .filter(|t| matches!(t.status, data::summit::BuildStatus::New))
+    {
+        print_task(task, max_id_len, max_pkg_len, max_arch_len);
+    }
+
+    // Finally print remaining items
+    for task in all_items.iter().filter(|t| {
+        !matches!(
+            t.status,
+            data::summit::BuildStatus::Building | data::summit::BuildStatus::New
+        )
+    }) {
+        print_task(task, max_id_len, max_pkg_len, max_arch_len);
     }
 
     Ok(())
+}
+
+fn print_task(
+    task: &data::summit::Task,
+    max_id_len: usize,
+    max_pkg_len: usize,
+    max_arch_len: usize,
+) {
+    let status_color = match task.status {
+        data::summit::BuildStatus::New => "cyan",
+        data::summit::BuildStatus::Failed => "red",
+        data::summit::BuildStatus::Building => "yellow",
+        data::summit::BuildStatus::Publishing => "blue",
+        data::summit::BuildStatus::Completed => "green",
+        data::summit::BuildStatus::Blocked => "red",
+    };
+
+    let truncated_build_id = {
+        let id = task.build_id.split('/').last().unwrap_or(&task.build_id);
+        if id.len() > 50 {
+            format!("{}...", &id[..47])
+        } else {
+            id.to_string()
+        }
+    };
+
+    println!(
+        "{:>id_width$} {:<pkg_width$} {:<arch_width$} {}",
+        task.id.to_string().bold(),
+        truncated_build_id.cyan(),
+        task.architecture,
+        format!("{:?}", task.status).color(status_color).bold(),
+        id_width = max_id_len,
+        pkg_width = max_pkg_len,
+        arch_width = max_arch_len,
+    );
 }
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
