@@ -289,9 +289,15 @@ async fn list_builds() -> Result<(), Box<dyn std::error::Error>> {
             data::summit::BuildStatus::Completed => "green",
             data::summit::BuildStatus::Blocked => "red",
         };
-
-        // Use the last part after split on '/'
-        let truncated_build_id = task.build_id.split('/').last().unwrap_or(&task.build_id);
+        // Get the last part after split on '/' and limit to 50 chars with ellipsis
+        let truncated_build_id = {
+            let id = task.build_id.split('/').last().unwrap_or(&task.build_id);
+            if id.len() > 50 {
+                format!("{}...", &id[..47])
+            } else {
+                id.to_string()
+            }
+        };
 
         println!(
             "{:>id_width$} {:<pkg_width$} {:<arch_width$} {}",
