@@ -31,6 +31,8 @@ enum Commands {
         #[command(subcommand)]
         check_command: CheckCommands,
     },
+    /// List recent builds from Summit
+    Builds,
 }
 
 #[derive(Subcommand)]
@@ -222,6 +224,83 @@ async fn check_updates(root: impl AsRef<Path>) -> Result<(), Box<dyn std::error:
     Ok(())
 }
 
+/// Fetches and displays the current builds from Summit
+async fn list_builds() -> Result<(), Box<dyn std::error::Error>> {
+    let client = reqwest::Client::new();
+    let response = client
+        .get("https://dash.serpentos.com/api/v1/tasks/enumerate")
+        .send()
+        .await?
+        .json::<data::summit::TaskEnumerateResponse>()
+        .await?;
+
+    // Calculate column widths
+    let max_id_len = 8; // Fixed width for ID
+    let max_pkg_len = response
+        .items
+        .iter()
+        .map(|t| t.pkg_id.len())
+        .max()
+        .unwrap_or(10);
+    let max_arch_len = response
+        .items
+        .iter()
+        .map(|t| t.architecture.len())
+        .max()
+        .unwrap_or(10);
+    let max_status_len = 10; // Fixed width for status
+
+    // Print header
+    println!(
+        "\n{:>id_width$} {:pkg_width$} {:arch_width$} {:status_width$}",
+        "ID".bold(),
+        "Package".bold(),
+        "Arch".bold(),
+        "Status".bold(),
+        id_width = max_id_len,
+        pkg_width = max_pkg_len,
+        arch_width = max_arch_len,
+        status_width = max_status_len
+    );
+
+    // Print separator
+    println!(
+        "{:-<id_width$} {:-<pkg_width$} {:-<arch_width$} {:-<status_width$}",
+        "",
+        "",
+        "",
+        "",
+        id_width = max_id_len,
+        pkg_width = max_pkg_len,
+        arch_width = max_arch_len,
+        status_width = max_status_len
+    );
+
+    // Print each build task
+    for task in response.items {
+        let status_color = match task.status {
+            data::summit::BuildStatus::New => "cyan",
+            data::summit::BuildStatus::Failed => "red",
+            data::summit::BuildStatus::Building => "yellow",
+            data::summit::BuildStatus::Publishing => "blue",
+            data::summit::BuildStatus::Completed => "green",
+            data::summit::BuildStatus::Blocked => "red",
+        };
+
+        println!(
+            "{:>id_width$} {:<pkg_width$} {:<arch_width$} {}",
+            task.id.to_string().bold(),
+            task.build_id.cyan(),
+            task.architecture,
+            format!("{:?}", task.status).color(status_color),
+            id_width = max_id_len,
+            pkg_width = max_pkg_len,
+            arch_width = max_arch_len,
+        );
+    }
+
+    Ok(())
+}
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
@@ -239,6 +318,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 todo!("Implement security check");
             }
         },
+        Commands::Builds => {
+            list_builds().await?;
+        }
     }
 
     Ok(())
