@@ -31,9 +31,12 @@ impl From<i32> for BuildStatus {
 #[derive(Debug, Deserialize)]
 pub struct TaskEnumerateResponse {
     pub items: Vec<Task>,
+    #[serde(rename = "numPages")]
     pub num_pages: i32,
     pub page: i32,
+    #[serde(rename = "hasPrevious")]
     pub has_previous: bool,
+    #[serde(rename = "hasNext")]
     pub has_next: bool,
 }
 
