@@ -227,23 +227,26 @@ async fn check_updates(root: impl AsRef<Path>) -> Result<(), Box<dyn std::error:
 /// Fetches and displays the current builds from Summit
 async fn list_builds() -> Result<(), Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
-    let response = client
-        .get("https://dash.serpentos.com/api/v1/tasks/enumerate")
-        .send()
-        .await?
-        .json::<data::summit::TaskEnumerateResponse>()
-        .await?;
+
+    // Fetch 3 pages of results
+    let mut all_items = Vec::new();
+    for page in 0..=3 {
+        let response = client
+            .get(format!(
+                "https://dash.serpentos.com/api/v1/tasks/enumerate?pageNumber={}",
+                page
+            ))
+            .send()
+            .await?
+            .json::<data::summit::TaskEnumerateResponse>()
+            .await?;
+        all_items.extend(response.items);
+    }
 
     // Calculate column widths
     let max_id_len = 8; // Fixed width for ID
-    let max_pkg_len = response
-        .items
-        .iter()
-        .map(|t| t.pkg_id.len())
-        .max()
-        .unwrap_or(10);
-    let max_arch_len = response
-        .items
+    let max_pkg_len = 50; // Fixed max width for build ID
+    let max_arch_len = all_items
         .iter()
         .map(|t| t.architecture.len())
         .max()
@@ -277,7 +280,7 @@ async fn list_builds() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Print each build task
-    for task in response.items {
+    for task in all_items {
         let status_color = match task.status {
             data::summit::BuildStatus::New => "cyan",
             data::summit::BuildStatus::Failed => "red",
@@ -287,10 +290,13 @@ async fn list_builds() -> Result<(), Box<dyn std::error::Error>> {
             data::summit::BuildStatus::Blocked => "red",
         };
 
+        // Use the last part after split on '/'
+        let truncated_build_id = task.build_id.split('/').last().unwrap_or(&task.build_id);
+
         println!(
             "{:>id_width$} {:<pkg_width$} {:<arch_width$} {}",
             task.id.to_string().bold(),
-            task.build_id.cyan(),
+            truncated_build_id.cyan(),
             task.architecture,
             format!("{:?}", task.status).color(status_color),
             id_width = max_id_len,
