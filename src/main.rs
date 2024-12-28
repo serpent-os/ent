@@ -10,7 +10,7 @@ use ent::{
     data,
     recipes::{self, ParserRegistration, Recipe, RecipeError},
 };
-use futures::StreamExt;
+use futures_util::StreamExt;
 use glob::Pattern;
 use indicatif::ProgressBar;
 
@@ -113,7 +113,7 @@ async fn check_updates(root: impl AsRef<Path>) -> Result<(), Box<dyn std::error:
     );
 
     // Process recipes concurrently to check for updates
-    let futures = futures::stream::iter(recipes)
+    let futures = futures_util::stream::iter(recipes)
         .map(|recipe| {
             let pb = pb.clone();
             async move {
