@@ -43,6 +43,8 @@ enum CheckCommands {
     Security,
 }
 
+static VCS_DELIMITERS: [&'static str; 3] = ["+git", "+vcs", "+mur"];
+
 // This function scans the directory for recipes and parses them
 fn scan_dir(
     root: impl AsRef<Path>,
@@ -89,6 +91,15 @@ fn scan_recipes(root: impl AsRef<Path>) -> Result<Vec<Recipe>, RecipeError> {
     Ok(scanned)
 }
 
+// Helper function to split string before multiple potential delimiters
+fn split_before_delimiters<'a>(text: &'a str, delimiters: &'a [&'a str]) -> &'a str {
+    delimiters
+        .iter()
+        .filter_map(|&delim| text.find(delim))
+        .min()
+        .map_or(text, |pos| &text[..pos])
+}
+
 /// A required update for CLI rendering
 #[derive(Debug)]
 pub struct RequiredUpdate {
@@ -133,12 +144,15 @@ async fn check_updates(root: impl AsRef<Path>) -> Result<(), Box<dyn std::error:
                             lv.versions.first().cloned()
                         };
 
+                        let sanitized_recipe_version =
+                            split_before_delimiters(&recipe.version, &VCS_DELIMITERS);
+
                         // Create update info if versions differ
                         if let Some(nv) = next_version {
-                            if nv != recipe.version {
+                            if nv != sanitized_recipe_version {
                                 Some(RequiredUpdate {
                                     source: recipe.name.clone(),
-                                    current_version: recipe.version.clone(),
+                                    current_version: sanitized_recipe_version.to_string(),
                                     latest_version: nv,
                                 })
                             } else {
