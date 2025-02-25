@@ -46,7 +46,9 @@ impl RecipeParser for Parser {
             let monitoring_contents = fs::read_to_string(&adjacent_monitor)
                 .map_err(|_| RecipeError::InvalidRecipe(adjacent_monitor.display().to_string()))
                 .unwrap_or_default();
-            Some(Monitoring::from_str(&monitoring_contents)?)
+            Some(Monitoring::from_str(&monitoring_contents).map_err(|e| {
+                RecipeError::InvalidMonitoring(e, adjacent_monitor.display().to_string())
+            })?)
         } else {
             None
         };
